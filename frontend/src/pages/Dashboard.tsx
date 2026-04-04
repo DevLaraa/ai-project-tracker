@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { getProjects, createProject } from "../api/projects";
 import { logout } from "../api/auth";
+import { createProject, getProjects } from "../api/projects";
 import {
-  getTasks,
   createTask,
-  updateTask,
   deleteTask,
   generateAndCreateTasksWithAI,
+  getTasks,
+  updateTask,
 } from "../api/tasks";
 
 type Project = {
@@ -34,19 +34,40 @@ export default function Dashboard() {
 
   const [aiLoading, setAiLoading] = useState(false);
   const [aiTaskCount, setAiTaskCount] = useState(5);
+  const [dashboardError, setDashboardError] = useState("");
 
   const fetchProjects = useCallback(async () => {
-    const data = await getProjects();
-    setProjects(data);
+    try {
+      setDashboardError("");
+      const data = await getProjects();
+      setProjects(data);
 
-    if (data.length > 0 && !selectedProject) {
-      setSelectedProject(data[0]);
+      if (data.length === 0) {
+        setSelectedProject(null);
+        setTasks([]);
+        return;
+      }
+
+      setSelectedProject((currentProject) => {
+        if (!currentProject) {
+          return data[0];
+        }
+
+        return data.find((project: Project) => project.id === currentProject.id) ?? data[0];
+      });
+    } catch {
+      setDashboardError("Failed to load projects. Please try again.");
     }
-  }, [selectedProject]);
+  }, []);
 
   const fetchTasks = useCallback(async (projectId: string) => {
-    const data = await getTasks(projectId);
-    setTasks(data);
+    try {
+      setDashboardError("");
+      const data = await getTasks(projectId);
+      setTasks(data);
+    } catch {
+      setDashboardError("Failed to load tasks. Please try again.");
+    }
   }, []);
 
   useEffect(() => {
@@ -62,46 +83,64 @@ export default function Dashboard() {
   const handleCreateProject = async () => {
     if (!projectName.trim()) return;
 
-    await createProject({
-      name: projectName,
-      description: projectDesc,
-    });
+    try {
+      setDashboardError("");
+      await createProject({
+        name: projectName,
+        description: projectDesc,
+      });
 
-    setProjectName("");
-    setProjectDesc("");
-    await fetchProjects();
+      setProjectName("");
+      setProjectDesc("");
+      await fetchProjects();
+    } catch {
+      setDashboardError("Failed to create the project. Please try again.");
+    }
   };
 
   const handleCreateTask = async () => {
     if (!selectedProject || !taskTitle.trim()) return;
 
-    await createTask({
-      projectId: selectedProject.id,
-      title: taskTitle,
-      status: taskStatus,
-    });
+    try {
+      setDashboardError("");
+      await createTask({
+        projectId: selectedProject.id,
+        title: taskTitle,
+        status: taskStatus,
+      });
 
-    setTaskTitle("");
-    setTaskStatus("todo");
-    await fetchTasks(selectedProject.id);
+      setTaskTitle("");
+      setTaskStatus("todo");
+      await fetchTasks(selectedProject.id);
+    } catch {
+      setDashboardError("Failed to create the task. Please try again.");
+    }
   };
 
   const handleStatusChange = async (
     taskId: string,
     newStatus: "todo" | "in_progress" | "done"
   ) => {
-    await updateTask(taskId, { status: newStatus });
+    if (!selectedProject) return;
 
-    if (selectedProject) {
+    try {
+      setDashboardError("");
+      await updateTask(taskId, { status: newStatus });
       await fetchTasks(selectedProject.id);
+    } catch {
+      setDashboardError("Failed to update the task status. Please try again.");
     }
   };
 
   const handleDeleteTask = async (taskId: string) => {
-    await deleteTask(taskId);
+    if (!selectedProject) return;
 
-    if (selectedProject) {
+    try {
+      setDashboardError("");
+      await deleteTask(taskId);
       await fetchTasks(selectedProject.id);
+    } catch {
+      setDashboardError("Failed to delete the task. Please try again.");
     }
   };
 
@@ -114,6 +153,7 @@ export default function Dashboard() {
     if (!selectedProject) return;
 
     setAiLoading(true);
+    setDashboardError("");
 
     try {
       await generateAndCreateTasksWithAI({
@@ -124,9 +164,8 @@ export default function Dashboard() {
       });
 
       await fetchTasks(selectedProject.id);
-    } catch (error) {
-      console.error(error);
-      alert("Failed to generate tasks with AI");
+    } catch {
+      setDashboardError("Failed to generate tasks with AI. Please try again.");
     } finally {
       setAiLoading(false);
     }
@@ -195,9 +234,7 @@ export default function Dashboard() {
               >
                 <p className="font-semibold text-slate-900">{project.name}</p>
                 {project.description ? (
-                  <p className="mt-1 text-sm text-slate-500 truncate">
-                    {project.description}
-                  </p>
+                  <p className="mt-1 text-sm text-slate-500 truncate">{project.description}</p>
                 ) : (
                   <p className="mt-1 text-sm text-slate-400">No description</p>
                 )}
@@ -224,11 +261,12 @@ export default function Dashboard() {
                   {selectedProject?.name || "Select a project"}
                 </h1>
                 <p className="mt-2 text-slate-500 max-w-2xl">
-                  {selectedProject?.description || "Choose a project from the sidebar to manage its tasks."}
+                  {selectedProject?.description ||
+                    "Choose a project from the sidebar to manage its tasks."}
                 </p>
               </div>
 
-              {selectedProject && (
+              {selectedProject ? (
                 <div className="flex items-center gap-2 rounded-2xl bg-white border border-slate-200 p-2 shadow-sm">
                   <select
                     className="rounded-xl border border-slate-200 bg-white px-3 py-2 outline-none"
@@ -248,10 +286,16 @@ export default function Dashboard() {
                     {aiLoading ? "Generating..." : "Generate Tasks with AI"}
                   </button>
                 </div>
-              )}
+              ) : null}
             </section>
 
-            {selectedProject && (
+            {dashboardError ? (
+              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                {dashboardError}
+              </div>
+            ) : null}
+
+            {selectedProject ? (
               <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4">
                 <div className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
                   <p className="text-sm text-slate-500">Total tasks</p>
@@ -273,9 +317,9 @@ export default function Dashboard() {
                   <p className="mt-2 text-3xl font-bold">{stats.done}</p>
                 </div>
               </section>
-            )}
+            ) : null}
 
-            {selectedProject && (
+            {selectedProject ? (
               <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
                 <h3 className="text-lg font-semibold mb-4">Create Task</h3>
 
@@ -307,14 +351,14 @@ export default function Dashboard() {
                   </button>
                 </div>
               </section>
-            )}
+            ) : null}
 
             <section className="rounded-2xl bg-white border border-slate-200 p-5 shadow-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold">Tasks</h3>
-                {selectedProject && (
+                {selectedProject ? (
                   <span className="text-sm text-slate-500">{tasks.length} items</span>
-                )}
+                ) : null}
               </div>
 
               {!selectedProject ? (
@@ -357,8 +401,8 @@ export default function Dashboard() {
                             task.status === "todo"
                               ? "bg-slate-200 text-slate-700"
                               : task.status === "in_progress"
-                              ? "bg-yellow-100 text-yellow-800"
-                              : "bg-green-100 text-green-800"
+                                ? "bg-yellow-100 text-yellow-800"
+                                : "bg-green-100 text-green-800"
                           }`}
                         >
                           {task.status}

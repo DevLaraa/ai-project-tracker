@@ -5,7 +5,11 @@ import { env } from '../config/env';
 const isProduction = env.NODE_ENV === 'production';
 
 export const logger = pino({
-  level: isProduction ? 'info' : 'debug'
+  level: isProduction ? 'info' : 'debug',
+  redact: {
+    paths: ['req.headers.authorization', 'req.headers.cookie', 'res.headers["set-cookie"]'],
+    censor: '[Redacted]'
+  }
 });
 
 export const httpLogger = pinoHttp({

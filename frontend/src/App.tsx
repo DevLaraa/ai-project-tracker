@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import ProtectedRoute from "./components/ProtectedRoute";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 
@@ -6,23 +7,16 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* ✅ Login */}
         <Route path="/login" element={<Login />} />
-
-        {/* ✅ Dashboard */}
         <Route
           path="/dashboard"
           element={
-            localStorage.getItem("token") ? (
+            <ProtectedRoute>
               <Dashboard />
-            ) : (
-              <Navigate to="/login" />
-            )
+            </ProtectedRoute>
           }
         />
-
-        {/* ✅ Default redirect */}
-        <Route path="*" element={<Navigate to="/login" />} />
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   );

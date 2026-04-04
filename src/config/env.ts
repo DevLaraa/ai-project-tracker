@@ -26,6 +26,17 @@ function optionalString(value: string | undefined): string | undefined {
   return value;
 }
 
+function optionalStringArray(value: string | undefined): string[] | undefined {
+  if (value === undefined || value.trim() === '') return undefined;
+
+  const items = value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+
+  return items.length > 0 ? items : undefined;
+}
+
 const DATABASE_URL_FROM_ENV = process.env.DATABASE_URL;
 
 const canBuildFromParts =
@@ -58,6 +69,7 @@ export const env = {
   AI_API_BASE_URL: parseString(process.env.AI_API_BASE_URL, 'https://api.openai.com/v1'),
   AI_MODEL: parseString(process.env.AI_MODEL, 'gpt-4o-mini'),
   AI_API_KEY: optionalString(process.env.AI_API_KEY),
+  CORS_ORIGIN: optionalStringArray(process.env.CORS_ORIGIN),
 
   // Tuning for the API; adjust to taste.
   DEFAULT_PAGE_LIMIT: parseNumber('DEFAULT_PAGE_LIMIT', process.env.DEFAULT_PAGE_LIMIT, 25),
