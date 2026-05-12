@@ -20,6 +20,21 @@ The project is intentionally scoped. It is not trying to look like a multi-tenan
 - deterministic mock AI mode for local evaluation
 - centralized error handling and structured logging
 
+## Preview
+
+### Login Flow
+
+![Login](./docs/screenshots/login.png)
+
+### Dashboard
+
+![Dashboard](./docs/screenshots/dashboard.png)
+
+### AI Task Generation
+
+![AI Generation](./docs/screenshots/ai-generation.png)
+
+
 ## Stack
 
 ### Backend
