@@ -26,6 +26,17 @@ function optionalString(value: string | undefined): string | undefined {
   return value;
 }
 
+function parseEnum<TValue extends string>(
+  name: string,
+  value: string | undefined,
+  allowed: readonly TValue[],
+  fallback: TValue
+): TValue {
+  if (value === undefined || value.trim() === '') return fallback;
+  if (allowed.includes(value as TValue)) return value as TValue;
+  throw new Error(`Environment variable ${name} must be one of: ${allowed.join(', ')}`);
+}
+
 function optionalStringArray(value: string | undefined): string[] | undefined {
   if (value === undefined || value.trim() === '') return undefined;
 
@@ -66,13 +77,15 @@ export const env = {
   JWT_SECRET: required('JWT_SECRET', process.env.JWT_SECRET),
   JWT_EXPIRES_IN: parseString(process.env.JWT_EXPIRES_IN, '1h'),
   BCRYPT_SALT_ROUNDS: parseNumber('BCRYPT_SALT_ROUNDS', process.env.BCRYPT_SALT_ROUNDS, 10),
+  AI_PROVIDER: parseEnum('AI_PROVIDER', process.env.AI_PROVIDER, ['mock', 'openai'] as const, 'mock'),
   AI_API_BASE_URL: parseString(process.env.AI_API_BASE_URL, 'https://api.openai.com/v1'),
   AI_MODEL: parseString(process.env.AI_MODEL, 'gpt-4o-mini'),
   AI_API_KEY: optionalString(process.env.AI_API_KEY),
-  CORS_ORIGIN: optionalStringArray(process.env.CORS_ORIGIN),
-
-  // Tuning for the API; adjust to taste.
-  DEFAULT_PAGE_LIMIT: parseNumber('DEFAULT_PAGE_LIMIT', process.env.DEFAULT_PAGE_LIMIT, 25),
-  MAX_PAGE_LIMIT: parseNumber('MAX_PAGE_LIMIT', process.env.MAX_PAGE_LIMIT, 100)
+  AI_REQUEST_TIMEOUT_MS: parseNumber(
+    'AI_REQUEST_TIMEOUT_MS',
+    process.env.AI_REQUEST_TIMEOUT_MS,
+    15000
+  ),
+  CORS_ORIGIN: optionalStringArray(process.env.CORS_ORIGIN)
 } as const;
 

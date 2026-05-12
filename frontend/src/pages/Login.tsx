@@ -1,73 +1,132 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { login } from "../api/auth";
+import type { FormEvent } from 'react';
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { isAuthenticated, login } from '../api/auth';
+import { setAccessToken } from '../utils/authStorage';
+import { getApiErrorMessage } from '../utils/apiError';
 
 export default function Login() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState("");
-
+  const [errorMessage, setErrorMessage] = useState('');
   const navigate = useNavigate();
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  useEffect(() => {
+    if (isAuthenticated()) {
+      navigate('/dashboard', { replace: true });
+    }
+  }, [navigate]);
+
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+
+    const normalizedEmail = email.trim();
+    if (!normalizedEmail || !password) {
+      setErrorMessage('Email and password are required.');
+      return;
+    }
+
     setLoading(true);
-    setErrorMessage("");
+    setErrorMessage('');
 
     try {
-      const data = await login({ email, password });
-      const token = data.token ?? data.accessToken ?? data;
+      const session = await login({
+        email: normalizedEmail,
+        password
+      });
 
-      localStorage.setItem("token", token);
-      navigate("/dashboard");
-    } catch {
-      setErrorMessage("Invalid credentials. Please check your email and password.");
+      setAccessToken(session.accessToken);
+      navigate('/dashboard', { replace: true });
+    } catch (error) {
+      setErrorMessage(
+        getApiErrorMessage(error, 'Unable to sign in. Please verify your credentials.')
+      );
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center relative overflow-hidden">
-      <div className="absolute w-[500px] h-[500px] bg-purple-600 rounded-full blur-3xl opacity-30 top-[-100px] left-[-100px]" />
-      <div className="absolute w-[400px] h-[400px] bg-blue-500 rounded-full blur-3xl opacity-30 bottom-[-100px] right-[-100px]" />
+    <div className="min-h-screen bg-[radial-gradient(circle_at_top,_rgba(34,211,238,0.22),_transparent_35%),linear-gradient(160deg,_#020617_0%,_#0f172a_45%,_#111827_100%)] px-4 py-10 text-white">
+      <div className="mx-auto flex min-h-[calc(100vh-5rem)] max-w-6xl items-center">
+        <div className="grid w-full gap-8 lg:grid-cols-[1.2fr_0.8fr]">
+          <section className="rounded-[36px] border border-white/10 bg-white/6 p-8 shadow-[0_30px_80px_-35px_rgba(15,23,42,0.75)] backdrop-blur xl:p-12">
+            <p className="text-sm font-semibold uppercase tracking-[0.32em] text-cyan-200/80">
+              Portfolio-ready delivery hub
+            </p>
+            <h1 className="mt-6 max-w-xl text-4xl font-semibold tracking-tight text-white xl:text-5xl">
+              A full-stack workspace focused on credible project execution.
+            </h1>
+            <p className="mt-6 max-w-2xl text-base leading-7 text-slate-300">
+              Client Project Tracker showcases a practical React, TypeScript, Express, and PostgreSQL stack
+              with authentication, ownership checks, validation, and AI-assisted planning workflows.
+            </p>
 
-      <div className="relative z-10 w-full max-w-md p-8 rounded-2xl backdrop-blur-xl bg-white/10 border border-white/20 shadow-2xl">
-        <h1 className="text-3xl font-semibold text-white text-center mb-2">Welcome back</h1>
-        <p className="text-gray-300 text-center mb-6 text-sm">Sign in to continue</p>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <input
-            type="email"
-            placeholder="Email"
-            className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-
-          <input
-            type="password"
-            placeholder="Password"
-            className="w-full p-3 rounded-lg bg-white/10 border border-white/20 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-purple-500"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-          />
-
-          {errorMessage ? (
-            <div className="rounded-lg border border-red-400/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
-              {errorMessage}
+            <div className="mt-10 grid gap-4 sm:grid-cols-3">
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <p className="text-sm font-semibold text-white">Structured backend</p>
+                <p className="mt-2 text-sm text-slate-300">Layered services, repositories, and validation at the API boundary.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <p className="text-sm font-semibold text-white">Credible UX</p>
+                <p className="mt-2 text-sm text-slate-300">Clear loading, empty, and error states with focused task management flows.</p>
+              </div>
+              <div className="rounded-[24px] border border-white/10 bg-slate-950/35 p-5">
+                <p className="text-sm font-semibold text-white">AI done safely</p>
+                <p className="mt-2 text-sm text-slate-300">Task generation is validated and persisted on the server, not trusted blindly from the client.</p>
+              </div>
             </div>
-          ) : null}
+          </section>
 
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full p-3 rounded-lg bg-gradient-to-r from-purple-500 to-blue-500 text-white font-medium hover:opacity-90 transition disabled:opacity-60"
-          >
-            {loading ? "Signing in..." : "Sign in"}
-          </button>
-        </form>
+          <section className="rounded-[36px] border border-white/10 bg-white p-8 text-slate-950 shadow-[0_30px_80px_-35px_rgba(15,23,42,0.8)] xl:p-10">
+            <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-400">Sign in</p>
+            <h2 className="mt-4 text-3xl font-semibold tracking-tight">Access the dashboard</h2>
+            <p className="mt-3 text-sm leading-6 text-slate-500">
+              Use an existing account to review projects, manage delivery tasks, and generate AI planning support.
+            </p>
+
+            <form onSubmit={handleSubmit} className="mt-8 space-y-4">
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">Email</span>
+                <input
+                  type="email"
+                  autoComplete="email"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200"
+                  placeholder="engineer@example.com"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                />
+              </label>
+
+              <label className="block">
+                <span className="mb-2 block text-sm font-medium text-slate-700">Password</span>
+                <input
+                  type="password"
+                  autoComplete="current-password"
+                  className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none transition focus:border-cyan-400 focus:ring-2 focus:ring-cyan-200"
+                  placeholder="Enter your password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                />
+              </label>
+
+              {errorMessage ? (
+                <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+                  {errorMessage}
+                </div>
+              ) : null}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-2xl bg-slate-950 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
+              >
+                {loading ? 'Signing in...' : 'Sign in'}
+              </button>
+            </form>
+          </section>
+        </div>
       </div>
     </div>
   );

@@ -9,80 +9,64 @@ import {
   updateTaskBodySchema
 } from '../schemas/task';
 import type { TaskService } from '../services/TaskService';
+import { sendNoContent, sendSuccess } from '../utils/apiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
 import { HttpError } from '../utils/httpError';
-
-function requireUserId(req: Request): UserId {
-  if (!req.user) throw new HttpError(401, 'Unauthorized');
-  return req.user.id;
-}
-
-function toValidationDetails(issues: { path: PropertyKey[]; message: string }[]) {
-  return issues.map((issue) => ({
-    field: issue.path.map((part) => String(part)).join('.') || 'body',
-    message: issue.message
-  }));
-}
+import { parseOrThrow } from '../utils/validation';
 
 export class TaskController {
   constructor(private readonly taskService: TaskService) {}
 
   public listTasks = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const ownerUserId = requireUserId(req);
-    const parsed = listTasksQuerySchema.safeParse(req.query);
-    if (!parsed.success) throw new HttpError(400, 'Validation failed', toValidationDetails(parsed.error.issues));
+    const ownerUserId = this.requireUserId(req);
+    const query = parseOrThrow(listTasksQuerySchema, req.query);
 
-    const projectId: ProjectId | undefined = parsed.data.projectId;
+    const projectId: ProjectId | undefined = query.projectId;
     const tasks = await this.taskService.listTasks(ownerUserId, projectId);
-    res.json({ data: tasks });
+    sendSuccess(res, tasks);
   });
 
   public getTaskById = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const ownerUserId = requireUserId(req);
-    const parsed = taskIdParamSchema.safeParse(req.params);
-    if (!parsed.success) throw new HttpError(400, 'Validation failed', toValidationDetails(parsed.error.issues));
+    const ownerUserId = this.requireUserId(req);
+    const params = parseOrThrow(taskIdParamSchema, req.params);
 
-    const taskId: TaskId = parsed.data.id;
+    const taskId: TaskId = params.id;
     const task = await this.taskService.getTaskById(ownerUserId, taskId);
-    res.json({ data: task });
+    sendSuccess(res, task);
   });
 
   public createTask = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const ownerUserId = requireUserId(req);
-    const parsed = createTaskBodySchema.safeParse(req.body);
-    if (!parsed.success) throw new HttpError(400, 'Validation failed', toValidationDetails(parsed.error.issues));
+    const ownerUserId = this.requireUserId(req);
+    const body = parseOrThrow(createTaskBodySchema, req.body);
 
-    const payload: CreateTaskInput = parsed.data;
+    const payload: CreateTaskInput = body;
     const created = await this.taskService.createTask(ownerUserId, payload);
-    res.status(201).json({ data: created });
+    sendSuccess(res, created, 201);
   });
 
   public updateTask = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const ownerUserId = requireUserId(req);
-    const parsedParams = taskIdParamSchema.safeParse(req.params);
-    if (!parsedParams.success) {
-      throw new HttpError(400, 'Validation failed', toValidationDetails(parsedParams.error.issues));
-    }
+    const ownerUserId = this.requireUserId(req);
+    const params = parseOrThrow(taskIdParamSchema, req.params);
+    const body = parseOrThrow(updateTaskBodySchema, req.body);
 
-    const parsedBody = updateTaskBodySchema.safeParse(req.body);
-    if (!parsedBody.success) {
-      throw new HttpError(400, 'Validation failed', toValidationDetails(parsedBody.error.issues));
-    }
-
-    const taskId: TaskId = parsedParams.data.id;
-    const payload: UpdateTaskInput = parsedBody.data;
+    const taskId: TaskId = params.id;
+    const payload: UpdateTaskInput = body;
     const updated = await this.taskService.updateTask(ownerUserId, taskId, payload);
-    res.json({ data: updated });
+    sendSuccess(res, updated);
   });
 
   public deleteTask = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const ownerUserId = requireUserId(req);
-    const parsed = taskIdParamSchema.safeParse(req.params);
-    if (!parsed.success) throw new HttpError(400, 'Validation failed', toValidationDetails(parsed.error.issues));
+    const ownerUserId = this.requireUserId(req);
+    const params = parseOrThrow(taskIdParamSchema, req.params);
 
-    const taskId: TaskId = parsed.data.id;
+    const taskId: TaskId = params.id;
     await this.taskService.deleteTask(ownerUserId, taskId);
-    res.status(204).send();
+    sendNoContent(res);
   });
+
+  private requireUserId(req: Request): UserId {
+    if (!req.user) throw new HttpError(401, 'Unauthorized');
+    return req.user.id;
+  }
 }
 

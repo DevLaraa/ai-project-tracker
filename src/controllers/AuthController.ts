@@ -1,45 +1,26 @@
 import type { NextFunction, Request, Response } from 'express';
 import { loginBodySchema } from '../schemas/auth';
 import type { AuthService } from '../services/AuthService';
+import { sendSuccess } from '../utils/apiResponse';
 import { asyncHandler } from '../utils/asyncHandler';
-import { HttpError } from '../utils/httpError';
 import { registerBodySchema } from '../schemas/auth';
+import { parseOrThrow } from '../utils/validation';
 
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   public register = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const parsed = registerBodySchema.safeParse(req.body);
-  
-    if (!parsed.success) {
-      const details = parsed.error.issues.map((issue) => ({
-        field: issue.path.join('.') || 'body',
-        message: issue.message
-      }));
-      throw new HttpError(400, 'Validation failed', details);
-    }
-  
-    const result = await this.authService.register(parsed.data);
-  
-    res.status(201).json({
-      data: result
-    });
+    const payload = parseOrThrow(registerBodySchema, req.body);
+    const result = await this.authService.register(payload);
+
+    sendSuccess(res, result, 201);
   });
 
   public login = asyncHandler(async (req: Request, res: Response, _next: NextFunction) => {
-    const parsed = loginBodySchema.safeParse(req.body);
-    if (!parsed.success) {
-      const details = parsed.error.issues.map((issue) => ({
-        field: issue.path.join('.') || 'body',
-        message: issue.message
-      }));
-      throw new HttpError(400, 'Validation failed', details);
-    }
+    const payload = parseOrThrow(loginBodySchema, req.body);
+    const result = await this.authService.login(payload);
 
-    const result = await this.authService.login(parsed.data);
-    res.json({
-      data: result
-    });
+    sendSuccess(res, result);
   });
 }
 

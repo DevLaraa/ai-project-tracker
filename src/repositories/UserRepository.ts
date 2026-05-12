@@ -91,7 +91,7 @@ export class UserRepository {
       `
       SELECT ${SAFE_USER_SELECT_COLUMNS}, password_hash
       FROM users
-      WHERE email = $1
+      WHERE LOWER(email) = LOWER($1)
       LIMIT 1
       `,
       [email]

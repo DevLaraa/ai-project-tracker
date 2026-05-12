@@ -1,50 +1,41 @@
-# AI Project Tracker
+# Client Project Tracker
 
-A full-stack project and task management application built with a TypeScript/Express/PostgreSQL backend and a React/Vite/Tailwind frontend.
+Client Project Tracker is a full-stack portfolio project for managing client work, tracking delivery tasks, and generating an initial task plan with AI support.
 
-## Overview
+The project is intentionally scoped. It is not trying to look like a multi-tenant enterprise platform. The goal is to show clear engineering judgment in a smaller product:
 
-AI Project Tracker is a portfolio-focused full-stack app that lets authenticated users:
+- a coherent auth story
+- strong request validation
+- ownership checks on protected resources
+- explicit backend layering
+- a frontend that feels like a real workflow instead of a CRUD tutorial
+- an AI integration that works locally without requiring a paid API
 
-- create and manage projects
-- create, update, and delete tasks
-- track task status
-- generate project tasks with AI assistance
+## What It Covers
 
-The project was intentionally structured to reflect real software engineering concerns beyond basic CRUD, including layered backend architecture, validation at the API boundary, ownership enforcement, centralized error handling, and server-side AI orchestration.
+- email/password authentication with JWT
+- project CRUD scoped to the authenticated user
+- task CRUD scoped through project ownership
+- AI-assisted task generation on the server
+- deterministic mock AI mode for local evaluation
+- centralized error handling and structured logging
 
-## Features
-
-- JWT authentication
-- Password hashing with bcrypt
-- Protected backend routes
-- Project CRUD
-- Task CRUD
-- Task status updates
-- Ownership checks for projects and tasks
-- AI-assisted task generation and persistence
-- Axios API layer with request/response interceptors
-- Centralized backend error handling
-- Request validation with Zod
-- PostgreSQL relational data model
-- Local Docker support for PostgreSQL
-
-## Tech Stack
+## Stack
 
 ### Backend
 
 - Node.js
-- Express
+- Express 5
 - TypeScript
-- PostgreSQL
+- PostgreSQL with `pg`
 - Zod
+- JWT
 - bcrypt
-- JSON Web Tokens
 - pino / pino-http
 
 ### Frontend
 
-- React
+- React 19
 - Vite
 - TypeScript
 - Tailwind CSS
@@ -55,135 +46,136 @@ The project was intentionally structured to reflect real software engineering co
 
 ### Backend
 
-The backend follows a layered architecture:
-
-- **Controllers** handle HTTP concerns such as parsing, validation, and responses.
-- **Services** contain business rules such as ownership checks and AI orchestration.
-- **Repositories** encapsulate SQL queries and database access.
-
-This keeps request handling, business logic, and persistence clearly separated and easier to maintain.
+- `src/routes`: route registration and middleware composition
+- `src/controllers`: HTTP-only concerns
+- `src/services`: business rules and ownership enforcement
+- `src/repositories`: SQL access
+- `src/schemas`: request validation
+- `src/ai`: provider interface plus `mock` and `openai` adapters
+- `src/middlewares`: auth, not-found, and centralized error handling
 
 ### Frontend
 
-The frontend is organized around:
+- `frontend/src/pages`: route-level screens
+- `frontend/src/components`: dashboard and shared UI pieces
+- `frontend/src/hooks`: dashboard state orchestration
+- `frontend/src/api`: Axios client and typed API calls
+- `frontend/src/types`: frontend domain contracts
+- `frontend/src/utils`: auth token and API error helpers
 
-- **pages** for route-level UI
-- **API modules** for backend communication
-- **routing** for navigation and route protection
-- **local state** for dashboard workflows
+## Auth And Authorization
 
-Axios is configured centrally so auth tokens are injected automatically and expired sessions are handled consistently.
+The auth story is intentionally simple:
 
-### Database
+- `POST /auth/register` creates an account
+- `POST /auth/login` returns a JWT session
+- protected routes require `Authorization: Bearer <token>`
+- projects and tasks are always resolved through the authenticated owner
 
-Main entities:
-
-- `users`
-- `projects`
-- `tasks`
-
-Relationships:
-
-- a project belongs to a user
-- a task belongs to a project
-
-This model supports ownership checks both in service logic and in SQL queries.
-
-## Authentication
-
-- Users register and log in with email and password
-- Passwords are hashed with bcrypt
-- The backend returns a JWT after successful auth
-- Protected routes validate the token and attach the user to the request
-- The frontend stores the token locally and sends it through axios interceptors
+There is no public `/users` management surface. That was removed on purpose to keep the domain consistent and avoid authorization ambiguity.
 
 ## AI Integration
 
-The app includes AI-assisted task generation.
+The project supports two AI modes behind a shared provider interface:
 
-Flow:
+- `mock`: default local/demo mode, no external API required
+- `openai`: real provider mode enabled through environment configuration
 
-1. The frontend requests task generation for a selected project
-2. The backend builds the prompt
-3. The backend calls the configured AI provider or uses a mock fallback
-4. The backend validates the returned structure
-5. Generated tasks are persisted transactionally in the selected project
+This is intentional. Portfolio reviewers should be able to run the project without creating an account for a paid AI service.
 
-This keeps provider logic, validation, and persistence on the server side.
+### Why Mock Mode Exists
+
+- local setup works out of the box
+- reviewers can evaluate the AI flow without external credentials
+- the backend architecture still demonstrates provider selection, validation, error handling, and persistence discipline
+
+### How Provider Selection Works
+
+- `AI_PROVIDER=mock` uses deterministic local task generation
+- `AI_PROVIDER=openai` uses the real provider and requires `AI_API_KEY`
+
+OpenAI requests are handled with:
+
+- explicit provider separation
+- output validation before persistence
+- timeout handling
+- normalized upstream error responses
+- transactional task creation after generation
 
 ## API Summary
 
-### Health
+### Public routes
 
 - `GET /health`
-
-### Auth
-
 - `POST /auth/register`
 - `POST /auth/login`
 
-### Users
-
-- `GET /users?limit=25&offset=0`
-- `GET /users/:id`
-- `POST /users`
-
-### Projects
+### Protected routes
 
 - `GET /projects`
 - `GET /projects/:id`
 - `POST /projects`
 - `PATCH /projects/:id`
 - `DELETE /projects/:id`
-
-### Tasks
-
 - `GET /tasks?projectId=<uuid>`
 - `GET /tasks/:id`
 - `POST /tasks`
 - `PATCH /tasks/:id`
 - `DELETE /tasks/:id`
-
-### AI
-
 - `POST /ai/generate-tasks`
 - `POST /ai/generate-and-create-tasks`
 
-All routes except `/health`, `/auth/register`, and `/auth/login` require a bearer token.
-
 ## Local Setup
 
-### 1. Backend
+### 1. Install dependencies
 
 ```bash
 npm install
+npm --prefix frontend install
+```
+
+### 2. Configure environment variables
+
+```bash
 cp .env.example .env
+cp frontend/.env.example frontend/.env
+```
+
+### 3. Start PostgreSQL
+
+Choose one:
+
+- run `sql/init.sql` manually against your database
+- run `docker compose up -d`
+
+The included Docker setup exposes PostgreSQL on `localhost:5433`.
+
+### 4. Start the backend
+
+```bash
 npm run dev
 ```
 
-Create the database schema with one of these options:
-
-- run `sql/init.sql` manually
-- use Docker Compose and point `DATABASE_URL` to the running Postgres instance
-
-### 2. Frontend
+### 5. Start the frontend
 
 ```bash
 cd frontend
-npm install
-cp .env.example .env
 npm run dev
 ```
 
-By default, the frontend expects the API at `http://localhost:3000`.
+The frontend expects the API at `http://localhost:3000` by default.
 
-### 3. Docker Postgres
+### 6. Create a user
+
+The frontend currently ships with a login screen only, so create an account once through the API:
 
 ```bash
-docker compose up -d
+curl -X POST http://localhost:3000/auth/register \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"engineer@example.com\",\"password\":\"supersecret123\",\"name\":\"Portfolio User\"}"
 ```
 
-The included Docker setup exposes PostgreSQL on port `5433`.
+After that, sign in through the UI.
 
 ## Environment Variables
 
@@ -195,42 +187,48 @@ The included Docker setup exposes PostgreSQL on port `5433`.
 - `JWT_SECRET`
 - `JWT_EXPIRES_IN`
 - `BCRYPT_SALT_ROUNDS`
+- `AI_PROVIDER`
 - `AI_API_BASE_URL`
 - `AI_MODEL`
 - `AI_API_KEY`
+- `AI_REQUEST_TIMEOUT_MS`
 - `CORS_ORIGIN`
-- `DEFAULT_PAGE_LIMIT`
-- `MAX_PAGE_LIMIT`
 
 ### Frontend
 
 - `VITE_API_URL`
 
-## Engineering Decisions
+## Quality Checks
 
-- **Layered architecture** to separate HTTP, business logic, and persistence
-- **Zod validation** to enforce runtime validation at the API boundary
-- **JWT auth** for a simple stateless SPA-friendly auth flow
-- **Axios interceptors** to centralize token handling and `401` behavior
-- **Server-side AI integration** to keep prompts, provider calls, and persistence controlled
-- **Ownership checks** to ensure users only access their own projects and tasks
-- **Transactional AI task creation** to avoid partial writes when creating generated tasks
+```bash
+npm run check
+```
 
-## What I’d Improve Next
+That command runs:
 
-- Add automated tests for auth, ownership, and AI-assisted flows
-- Further modularize the dashboard UI as the frontend grows
-- Tighten authorization around future user-management flows
-- Add shared contracts or stronger end-to-end typing between frontend and backend
-- Add more production-oriented observability and monitoring
+- backend typecheck
+- backend tests
+- backend build
+- frontend lint
+- frontend production build
 
-## Portfolio Notes
+## Testing Scope
 
-This project is meant to demonstrate:
+The project intentionally keeps tests small and targeted. Current tests focus on:
 
-- full-stack React + TypeScript development
-- REST API design
-- PostgreSQL-backed application design
-- modular backend architecture
-- practical AI integration
-- maintainable and interview-defensible code structure
+- auth service behavior
+- ownership enforcement in task flows
+- schema-driven validation failures
+- AI mock/provider-backed persistence flow
+
+## Tradeoffs
+
+- The project uses direct SQL with small repositories instead of an ORM to keep ownership logic and queries explicit.
+- AI mock mode is prioritized over provider breadth because this repo is meant to be runnable without paid dependencies.
+- The frontend is intentionally narrow in scope. It focuses on the main workflow instead of covering every possible admin path.
+
+## Repo Notes
+
+- `dist/` is generated output and should not be treated as source.
+- `.env` files are excluded from Git.
+- The repo may be run entirely in mock AI mode for evaluation.

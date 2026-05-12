@@ -10,11 +10,16 @@ type LoginResult = {
   user: AuthenticatedUser;
 };
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export class AuthService {
   constructor(private readonly userRepository: UserRepository) {}
 
   async register(input: { email: string; password: string; name?: string }): Promise<LoginResult> {
-    const existingUser = await this.userRepository.getAuthByEmail(input.email);
+    const normalizedEmail = normalizeEmail(input.email);
+    const existingUser = await this.userRepository.getAuthByEmail(normalizedEmail);
     if (existingUser) {
       throw new HttpError(409, 'User already exists');
     }
@@ -22,8 +27,8 @@ export class AuthService {
     const passwordHash = await bcrypt.hash(input.password, env.BCRYPT_SALT_ROUNDS);
 
     const createdUser = await this.userRepository.create({
-      email: input.email,
-      name: input.name ?? 'User',
+      email: normalizedEmail,
+      name: input.name?.trim() || 'User',
       passwordHash
     });
 
@@ -43,7 +48,7 @@ export class AuthService {
   }
 
   async login(input: { email: string; password: string }): Promise<LoginResult> {
-    const authUser = await this.userRepository.getAuthByEmail(input.email);
+    const authUser = await this.userRepository.getAuthByEmail(normalizeEmail(input.email));
     if (!authUser) {
       throw new HttpError(401, 'Invalid email or password');
     }

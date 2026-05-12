@@ -42,8 +42,8 @@ export const listTasksQuerySchema = z.object({
   projectId: z
     .union([z.string(), z.array(z.string())])
     .transform((val) => (Array.isArray(val) ? val[0] : val))
-    .refine((val) => !val || /^[0-9a-fA-F-]{36}$/.test(val), {
-      message: "Invalid UUID"
+    .refine((value) => uuidSchema.safeParse(value).success, {
+      message: 'Invalid UUID'
     })
     .optional()
 });
